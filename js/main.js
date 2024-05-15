@@ -370,13 +370,17 @@ function Enemy() {
   this.mesh.castShadow = true;
   this.mesh.receiveShadow = true;
 
-  let validX = false;
+  let validPosition = false;
   let candidateX = 0;
+  let candidateY = 0;
   let attempt = 0;
-  while (!validX && attempt < 10) { // Limita as tentativas para evitar loop infinito
+
+  while (!validPosition && attempt < 10) { // Limita as tentativas para evitar loop infinito
     candidateX = Math.cos(this.angle) * this.distanceFromCenter;
-    if (Math.abs(candidateX) > 70) {
-      validX = true;
+    candidateY = Math.sin(this.angle) * this.distanceFromCenter + Math.random() * 20 - 6;
+    // Verifica se a posição é válida com base no valor de Y negativo
+    if (candidateY < 0 || Math.abs(candidateX) > 70) {
+      validPosition = true;
     } else {
       this.angle += Math.PI / 15; // Ajuste mais sutil do ângulo
     }
@@ -384,7 +388,7 @@ function Enemy() {
   }
 
   this.mesh.position.x = candidateX;
-  this.mesh.position.y = Math.sin(this.angle) * this.distanceFromCenter + Math.random() * 20 - 6; // Adiciona uma variação aleatória ao eixo Y
+  this.mesh.position.y = candidateY;
   this.mesh.position.z = 50; // Mantém a posição Z constante
 }
 
@@ -538,7 +542,7 @@ function displayMessage(msg) {
     if (enemies.length === 0) {
       spawnEnemies();
     }
-  }, 2000);
+  }, 3000);
 }
 function updateLevelDisplay() {
   document.getElementById('level').textContent = 'Level: ' + level;
