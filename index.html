@@ -1,16 +1,54 @@
 <!DOCTYPE html>
-<html>
+<html lang="en" >
 <head>
-    <meta charset="UTF-8" />
-    <title>ICG Project - The Aviator</title>
-    <link href='https://fonts.googleapis.com/css?family=Playfair+Display:400,700,700italic' rel='stylesheet' type='text/css'>
-    <link rel="stylesheet" type="text/css" href="css/demo.css" />
-    <link rel="stylesheet" type="text/css" href="css/styles.css" />
-    <script type="text/javascript" src="js/three.min.js"></script>
-    <script type="text/javascript" src="js/main.js"></script>
+    <meta charset="UTF-8">
+    <title>The Aviator</title>
+    <link rel="stylesheet" href="css/styles.css">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
+
 </head>
-<body>
-    <div class = "world" id = "world"></div>
-    
+<body style="overflow: hidden;background-color: #f7d9aa;">
+    <div class="start-screen">
+        <div id="planeContainer" class="plane"></div>
+        <h1>Welcome to The Aviator!</h1>
+        <button id="startButton" class="start-button">Start Game</button>
+        <button id="controlsButton" class="start-button">Show Controls</button> 
+        <div id="controlsModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Game Controls</h2>
+                <p>Space: Fire</p>
+                <p>Mouse: Move up/down - Zoom in/Out</p>
+                <p>ESC: Pause/Continue</p>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer-text">
+        Projeto: The Aviator - ICG 23/24<br>
+        Simão Ildefonso - 107997
+    </footer>
+
+    <script src="js/three.min.js"></script>
+    <script src="js/main.js"></script>
+    <script>
+        document.getElementById('startButton').addEventListener('click', function() {
+            window.location.href = 'game.html';
+        });
+        // JavaScript for controls modal
+        document.getElementById('controlsButton').onclick = function() {
+            document.getElementById('controlsModal').style.display = "block";
+        };
+        document.querySelector('.close').onclick = function() {
+            document.getElementById('controlsModal').style.display = "none";
+        };
+        window.onclick = function(event) {
+            if (event.target == document.getElementById('controlsModal')) {
+                document.getElementById('controlsModal').style.display = "none";
+            }
+        };
+    </script>
+    <script src="js/initPlane.js"></script> <!-- Script para inicializar o avião -->
 </body>
 </html>

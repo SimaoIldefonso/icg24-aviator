@@ -18,6 +18,20 @@ var scene,
 
 var HEIGHT, WIDTH;
 
+// GAME VARIABLES
+var enemies = [];
+var score = 0;
+var level = 1;
+var isPaused = false;
+var projectiles = [];
+var canShoot = true;
+var airplaneLives = 3; 
+var isPaused = false;
+var gameOverFlag = false;
+var initialPlaneX = 0;
+var levelTransitioning = false; 
+var settingsOpen = false; 
+
 //INIT THREE JS, SCREEN AND MOUSE EVENTS
 
 function createScene() {
@@ -40,6 +54,7 @@ scene.fog = new THREE.Fog(0xf7d9aa, 100,950);
 camera.position.x = 0;
 camera.position.z = 200;
 camera.position.y = 100;
+
 
 renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
 renderer.setSize(WIDTH, HEIGHT);
@@ -328,32 +343,61 @@ rightGun.position.set(15,10,-50);
 
 this.mesh.add(rightGun);
 
-//var projectileGeom = new THREE.BoxGeometry(10, 5, 8);
-//var projectileMat = new THREE.MeshPhongMaterial({ color:'#eead2d', shading: THREE.FlatShading });
-//var projectile = new THREE.Mesh(projectileGeom, projectileMat);
-//projectile.position.set(15, 10, 50);
-//projectile.castShadow = true;
-//projectile.receiveShadow = true;
-//this.mesh.add(projectile);
-//scene.add(this.mesh);
-//create infinite projectiles
-
-
 };
 
 AirPlane.prototype.createProjectile = function() {
-  var projectileGeom = new THREE.BoxGeometry(10, 5, 8);
+  var projectileGeom = new THREE.BoxGeometry(4, 1, 3); 
   var projectileMat = new THREE.MeshPhongMaterial({ color:'#eead2d', shading: THREE.FlatShading });
   var projectile = new THREE.Mesh(projectileGeom, projectileMat);
-  projectile.position.set(15, 10, 50);
+  projectile.position.set(this.mesh.position.x - 4, this.mesh.position.y + 2, this.mesh.position.z + 10);
+  projectile.velocity = new THREE.Vector3(5, 0, 0);
   projectile.castShadow = true;
   projectile.receiveShadow = true;
-
-
   return projectile;
 };
 
-Sky = function(){
+function Enemy() {
+  var geom = new THREE.SphereGeometry(5, 32, 32);
+  var mat = new THREE.MeshPhongMaterial({ color: 0xff0000 });
+  this.mesh = new THREE.Mesh(geom, mat);
+  this.angle = Math.random() * Math.PI * 2; // Ângulo inicial aleatório
+  this.distanceFromCenter = 80 + Math.random() * 40; // Variação no raio entre 80 e 120
+  this.speed = 0.003 + Math.random() * 0.0001;
+  this.oscillationAmplitude = 10 + Math.random() * 15;  // Aumenta amplitude base + random extra
+  this.oscillationSpeed = 0.2 + Math.random() * 0.3;    // Aumenta a frequência de oscilação
+  this.oscillationPhase = Math.random() * 2 * Math.PI;  // Fase inicial totalmente aleatória
+  this.health = 1; // Valor inicial da saúde do inimigo, será atualizado na função spawnEnemies
+  this.mesh.castShadow = true;
+  this.mesh.receiveShadow = true;
+
+  let validX = false;
+  let candidateX = 0;
+  let attempt = 0;
+  while (!validX && attempt < 10) { // Limita as tentativas para evitar loop infinito
+    candidateX = Math.cos(this.angle) * this.distanceFromCenter;
+    if (Math.abs(candidateX) > 70) {
+      validX = true;
+    } else {
+      this.angle += Math.PI / 15; // Ajuste mais sutil do ângulo
+    }
+    attempt++;
+  }
+
+  this.mesh.position.x = candidateX;
+  this.mesh.position.y = Math.sin(this.angle) * this.distanceFromCenter + Math.random() * 20 - 6; // Adiciona uma variação aleatória ao eixo Y
+  this.mesh.position.z = 50; // Mantém a posição Z constante
+}
+
+Enemy.prototype.move = function() {
+  this.angle += this.speed;  
+  this.mesh.position.x = Math.cos(this.angle) * (this.distanceFromCenter * 2.5);
+  this.mesh.position.y = Math.sin(this.angle) * (this.distanceFromCenter * 1.35) 
+                         + this.oscillationAmplitude * Math.sin(this.angle * this.oscillationSpeed + this.oscillationPhase);
+  this.mesh.position.z = 10;
+}
+
+
+Sky = function(){ 
 this.mesh = new THREE.Object3D();
 this.nClouds = 20;
 this.clouds = [];
@@ -418,29 +462,33 @@ this.mesh.geometry.verticesNeedUpdate=true;
 sea.mesh.rotation.z += .005;
 }
 
-Cloud = function(){
-this.mesh = new THREE.Object3D();
-this.mesh.name = "cloud";
-var geom = new THREE.CubeGeometry(20,20,20);
-var mat = new THREE.MeshPhongMaterial({
-  color:Colors.white,
-});
+Cloud = function () {
+  this.mesh = new THREE.Object3D();
+  this.mesh.name = "cloud";
 
-var nBlocs = 3+Math.floor(Math.random()*3);
-for (var i=0; i<nBlocs; i++ ){
-  var m = new THREE.Mesh(geom.clone(), mat);
-  m.position.x = i*15;
-  m.position.y = Math.random()*10;
-  m.position.z = Math.random()*10;
-  m.rotation.z = Math.random()*Math.PI*2;
-  m.rotation.y = Math.random()*Math.PI*2;
-  var s = .1 + Math.random()*.9;
-  m.scale.set(s,s,s);
-  m.castShadow = true;
-  m.receiveShadow = true;
-  this.mesh.add(m);
-}
-}
+  var geom = new THREE.BoxGeometry(20, 20, 20);
+  var mat = new THREE.MeshPhongMaterial({
+    color: Colors.white,
+  });
+
+  var nBlocs = 3 + Math.floor(Math.random() * 3);
+  for (var i = 0; i < nBlocs; i++) {
+    var m = new THREE.Mesh(geom, mat);
+    m.position.x = i * 15;
+    m.position.y = Math.random() * 10;
+    m.position.z = Math.random() * 10;
+    m.rotation.z = Math.random() * Math.PI * 2;
+    m.rotation.y = Math.random() * Math.PI * 2;
+
+    var s = 0.1 + Math.random() * 0.9;
+    m.scale.set(s, s, s);
+
+    m.castShadow = true;
+    m.receiveShadow = true;
+
+    this.mesh.add(m);
+  }
+};
 
 // 3D Models
 var sea;
@@ -465,47 +513,275 @@ sky.mesh.position.y = -600;
 scene.add(sky.mesh);
 }
 
-function loop() {
-  updatePlane();
-  airplane.pilot.updateHairs();
-  document.addEventListener('keydown', function(event) {
-    if (event.keyCode === 32 && canShoot) {
-      var projectile = airplane.createProjectile();
-      airplane.mesh.add(projectile);
-      canShoot = false; 
+
+function checkLevelCompletion() {
+  if (enemies.length === 0 && !levelTransitioning && !gameOverFlag) { 
+      levelTransitioning = true;
+      displayMessage("Level " + level + " Completed!");
+      level++;
       setTimeout(function() {
-        canShoot = true;
-      }, 500); // Tempo de cooldown em milissegundos (aqui, 1000ms = 1 segundo)
-    }
-  });
-  updateCameraFov();
-  sea.moveWaves();
-  sky.mesh.rotation.z += .01;
-  renderer.render(scene, camera);
-  requestAnimationFrame(loop);
+          spawnEnemies(level);
+          updateLevelDisplay(); 
+          levelTransitioning = false;
+      }, 3000);
+  }
 }
 
 
-function updatePlane(){
-var targetY = normalize(mousePos.y,-.75,.75,25, 175);
-var targetX = normalize(mousePos.x,-.75,.75,-100, 100);
-airplane.mesh.position.y += (targetY-airplane.mesh.position.y)*0.1;
-airplane.mesh.rotation.z = (targetY-airplane.mesh.position.y)*0.0128;
-airplane.mesh.rotation.x = (airplane.mesh.position.y-targetY)*0.0064;
-airplane.propeller.rotation.x += 0.3;
-
-
-airplane.mesh.children.forEach(function(child, index) {
-  if (index >= 15) {
-    if (child.position.x > window.innerWidth)  {
-      airplane.mesh.remove(child);
+// Function to display game messages
+function displayMessage(msg) {
+  var messageElement = document.getElementById('levelMessage'); // Ensure this ID exists in your HTML
+  messageElement.textContent = msg;
+  messageElement.style.display = 'block';
+  setTimeout(function() {
+    messageElement.style.display = 'none';
+    if (enemies.length === 0) {
+      spawnEnemies();
     }
-    child.position.x += 10;
+  }, 2000);
+}
+function updateLevelDisplay() {
+  document.getElementById('level').textContent = 'Level: ' + level;
+}
+function spawnEnemies(level) {
+  enemies = []; // Limpa o array de inimigos existentes para começar do zero para o novo nível
+  var numberOfEnemies = Math.floor(5 + Math.pow(level, 1.2));
+  for (var i = 0; i < numberOfEnemies; i++) {
+    var enemy = new Enemy();
+
+    enemy.speed = 0.003 + Math.random() * 0.002 + (level * 0.001);
+    
+    enemy.health = Math.floor(level * 0.5) + 1;
+
+    if (Math.random() < 0.5) {
+      enemy.oscillationAmplitude *= 3; // Aumenta a amplitude para que alguns inimigos desçam mais
+    }
+
+    enemies.push(enemy);
+    scene.add(enemy.mesh);
+  }
+}
+
+
+function loop() {
+  requestAnimationFrame(loop);  // Solicita a próxima frame de animação
+
+  if (!isPaused && !settingsOpen) {
+    updatePlane();
+    airplane.pilot.updateHairs();
+    updateCameraFov();
+    sea.moveWaves();
+    sky.mesh.rotation.z += .001;
+    updateProjectiles();
+    checkAirplaneCollisions();
+    enemies.forEach(enemy => enemy.move());
+    checkLevelCompletion(); // Verifica se o nível foi completado
+  }
+
+  TWEEN.update(); // Atualiza as animações do TWEEN.js
+
+  renderer.render(scene, camera);  // Renderiza a cena com a câmera
+}
+
+
+// Listeners de eventos de teclado colocados fora do loop
+document.addEventListener('keydown', function(event) {
+  switch (event.keyCode) {
+    case 32: // Espaço
+      if (canShoot) {
+        var projectile = airplane.createProjectile();
+        scene.add(projectile);  // Adiciona o projétil à cena
+        projectiles.push(projectile);  // Mantém controle dos projéteis ativos
+        canShoot = false;  // Inicia o cooldown
+        setTimeout(() => { canShoot = true; }, 250);  // Finaliza o cooldown
+      }
+      break;
+    case 27: // Tecla ESC
+      togglePause();
+      break;
+    case 82: // Tecla "R"
+      if (gameOverFlag) {
+        resetGame();
+      }
+      break;
   }
 });
 
 
 
+function togglePause() {
+  if (!gameOverFlag) {  // Somente alterar o estado de pausa se o jogo não tiver acabado
+    isPaused = !isPaused;
+    var pauseStatus = isPaused ? 'Game Paused' : 'Game Resumed';
+    displayMessage(pauseStatus);
+  }
+}
+
+
+
+
+function updatePlane(){
+  var targetY = normalize(mousePos.y,-.75,.75,25, 175);
+
+  airplane.mesh.position.y += (targetY - airplane.mesh.position.y) * 0.1;
+  airplane.mesh.rotation.z = (targetY - airplane.mesh.position.y) * 0.0128;
+  airplane.mesh.rotation.x = (airplane.mesh.position.y - targetY) * 0.0064;
+  airplane.propeller.rotation.x += 0.3;
+}
+
+function updateProjectiles() {
+  projectiles.forEach((proj, projIndex) => {
+    proj.position.add(proj.velocity);
+    if (proj.position.x > 2000) {
+      scene.remove(proj);
+      projectiles.splice(projIndex, 1);
+    } else {
+      enemies.forEach((enemy, enemyIndex) => {
+        if (checkCollision(proj, enemy.mesh)) {
+          explodeEnemy(enemy);
+          enemies.splice(enemyIndex, 1);
+          updateScore(20);  // Adiciona 20 pontos por cada inimigo destruído
+          scene.remove(proj);
+          projectiles.splice(projIndex, 1);
+        }
+      });
+    }
+  });
+}
+function explodeEnemy(enemy) {
+  explosionSound.play(); // Toca o som de explosão
+
+  new TWEEN.Tween(enemy.mesh.scale)
+      .to({ x: 2, y: 2, z: 2 }, 200)
+      .easing(TWEEN.Easing.Quadratic.Out)
+      .onComplete(() => {
+          scene.remove(enemy.mesh);
+      })
+      .start();
+
+  new TWEEN.Tween(enemy.mesh.material)
+      .to({ opacity: 0 }, 200)
+      .easing(TWEEN.Easing.Quadratic.Out)
+      .start();
+}
+
+
+function changePlaneColor() {
+  // Armazenar as cores originais de todas as partes do avião
+  var originalColors = [];
+  airplane.mesh.traverse(function (child) {
+    if (child instanceof THREE.Mesh) {
+      originalColors.push({ mesh: child, color: child.material.color.getHex() });
+    }
+  });
+
+  var colors = [Colors.red, Colors.white, Colors.pink];
+  var index = 0;
+  var interval = setInterval(() => {
+    airplane.mesh.traverse(function (child) {
+      if (child instanceof THREE.Mesh) {
+        child.material.color.setHex(colors[index]);
+      }
+    });
+    index = (index + 1) % colors.length;
+  }, 100);
+
+  setTimeout(() => {
+    clearInterval(interval);
+    // Restaurar as cores originais
+    originalColors.forEach(function (item) {
+      item.mesh.material.color.setHex(item.color);
+    });
+  }, 600); // Duração da animação de cor
+}
+
+
+
+function updateLivesDisplay() {
+  document.getElementById('lives').textContent = 'Lives: ' + airplaneLives;
+}
+
+function resetGame() {
+  // Reset game variables
+  enemies.forEach(enemy => scene.remove(enemy.mesh)); // Remove all existing enemies
+  projectiles.forEach(proj => scene.remove(proj)); // Remove all existing projectiles
+  enemies = [];
+  projectiles = [];
+  score = 0;
+  level = 1;
+  airplaneLives = 3;
+  isPaused = false;
+  gameOverFlag = false;
+  canShoot = true;
+
+  // Update displays
+  updateScore(0);
+  updateLivesDisplay();
+  updateLevelDisplay();
+
+  // Display message
+  displayMessage("Game Restarted!");
+
+  // Respawn enemies
+  spawnEnemies(level);
+}
+
+function gameOver() {
+  isPaused = true;
+  gameOverFlag = true;  
+  displayMessage("Game Over! Press 'R' to restart.");
+}
+
+function updateEnemies() {
+  enemies.forEach(function(enemy) {
+    enemy.move();
+  });
+}
+
+function checkCollision(obj1, obj2) {
+  var dx = obj1.position.x - obj2.position.x;
+  var dy = obj1.position.y - obj2.position.y;
+  var distanceSquared = dx * dx + dy * dy;
+  var threshold = 10; // Ajuste esse valor conforme o necessário
+  return distanceSquared < (threshold * threshold);
+}
+
+function checkAirplaneCollisions() {
+  enemies.forEach((enemy, index) => {
+    if (checkCollision(airplane.mesh, enemy.mesh)) {
+      airplaneLives -= 1; // Decrementa uma vida
+      updateLivesDisplay();
+      if (airplaneLives <= 0) {
+        gameOver();
+      } else {
+        // Bounceback effect
+        var bounceDistance = 50; // Distância do bounceback
+        changePlaneColor();
+        new TWEEN.Tween(airplane.mesh.position)
+          .to({ x: airplane.mesh.position.x - bounceDistance }, 300)
+          .easing(TWEEN.Easing.Quadratic.Out)
+          .onComplete(() => {
+            // Move back to initial position
+            new TWEEN.Tween(airplane.mesh.position)
+              .to({ x: initialPlaneX }, 600)
+              .easing(TWEEN.Easing.Quadratic.InOut)
+              .start();
+          })
+          .start();
+      }
+      explodeEnemy(enemy); // Explode the enemy
+      enemies.splice(index, 1);
+      checkLevelCompletion(); // Verifica se o nível foi completado após tratar a colisão
+    }
+  });
+}
+
+
+
+
+function updateScore(points) {
+  score += points;
+  document.getElementById('score').innerText = 'Score: ' + score;
 }
 
 function updateCameraFov(){
@@ -521,15 +797,18 @@ var dt = tmax-tmin;
 var tv = tmin + (pc*dt);
 return tv;
 }
-var canShoot = true;
-function init(event){
-document.addEventListener('mousemove', handleMouseMove, false);
-createScene();
-createLights();
-createPlane();
-createSea();
-createSky();
-loop();
+
+function init(event) {
+  document.addEventListener('mousemove', handleMouseMove, false);
+
+  createScene();
+  createLights();
+  createPlane();
+  createSea();
+  createSky();
+  spawnEnemies(1);  // Start with level 1
+  updateLevelDisplay(); 
+  loop();
 }
 
 // HANDLE MOUSE EVENTS
